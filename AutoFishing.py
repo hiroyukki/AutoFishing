@@ -1,4 +1,6 @@
 import sys
+import os
+import threading
 import time
 import logging
 import random
@@ -121,14 +123,32 @@ def autoFishing():
 
 fishingKey = 'f' # replace to your fishing key
 logger = logging.getLogger('auto_fishing')
+timeoutMinutes = random.randint(50, 80) # 一段时间后关闭程序
 
-def main():
+def exitWorker():
+    logger.info("close wow after {} minutes".format(timeoutMinutes))
+    time.sleep(timeoutMinutes * 60)
+    logger.info("close wow")
+    pyautogui.hotkey('alt', 'f4')
+    sys.exit(1)
+
+def main(autoClose):
     logger.setLevel(logging.INFO)
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s %(message)s'))
     logger.addHandler(handler)
-
-    autoFishing()
+    closeThread = threading.Thread(target=exitWorker)
+    if autoClose:
+        closeThread.start()
+    try:
+        autoFishing()
+    except BaseException as e:
+        logger.error(repr(e))
+    finally:
+        os._exit(1)
 
 if __name__ == '__main__':
-    main()
+    autoClose = False
+    if len(sys.argv) == 2 and sys.argv[1] == 'autoClose':
+        autoClose = True
+    main(autoClose)
