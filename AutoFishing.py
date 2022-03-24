@@ -63,9 +63,12 @@ def findBuoyPosition(initImg, timeout):
 def waitForBite(initImg, timeout, x, y, width, height):
     beginTime = time.time()
     prevImg = initImg
+    exceptCount = 1
     while True:
-        if time.time() - beginTime > timeout:
+        lastTime = time.time() - beginTime
+        if lastTime > timeout:
             return 2
+        # pyautogui.moveTo((1 - lastTime / timeout) * width, height - 10, 0)
         time.sleep(0.1)
         curImg = screenshot()
         # check change around the buoy
@@ -77,30 +80,41 @@ def waitForBite(initImg, timeout, x, y, width, height):
         prevImg = curImg
         try:
             contour = maxContour(diff)
-            if cv2.contourArea(contour) > 500:
+            area = cv2.contourArea(contour)
+            # print(area)
+            if area > 800 + y * 3:
+                # print(cv2.contourArea(contour))
+                # cv2.imwrite('diff.jpg', diff)
+                # cv2.imwrite('prev.jpg', prevImg[y0:y1, x0:x1])
+                # cv2.imwrite('cur.jpg', curImg[y0:y1, x0:x1])
                 return 0
-        except:
-            pass
+        except Exception as e:
+            # print(e)
+            exceptCount = exceptCount + 1
+            if exceptCount > 2:
+                return 3
 
 def fishingLoop(key, width, height):
     logger.info('begin fishing loop')
-    time.sleep(1)
     initImg = screenshot()
+    time.sleep(0.2)
     pyautogui.press(key)
+    time.sleep(1)
+    pyautogui.moveTo(50, 50, 0)
     x, y, buoyImg = findBuoyPosition(initImg, 8)
     if x == 0:
         return 1
     logger.info('buoy found at position ({}, {})'.format(x, y))
-    pyautogui.moveTo(1, 1, 0)
+    pyautogui.moveTo(100, 100, 0)
     waitResult = waitForBite(buoyImg, 20, x, y, width, height)
     if waitResult == 0:
         # move to buoy and right click
-        pyautogui.moveTo(x, y, 0)
         time.sleep(0.1)
         logger.info('bite! right click ({}, {})'.format(x, y))
+        pyautogui.moveTo(x, y, 0)
         pyautogui.rightClick()
         time.sleep(1) # wait for fish load into pack
-        pyautogui.moveTo(1, 1, 0)
+        pyautogui.moveTo(150, 150, 0)
     else:
         logger.error('waitForBite returned: {}'.format(waitResult))
 
@@ -112,25 +126,29 @@ def autoFishing():
     while True:
         width, height = pyautogui.size()
         try:
+            pyautogui.press(destroyKey)
             fishingLoop(fishingKey, width, height)
             # Make your character jump randomly to resist cheating detection
             if random.randint(1,100) < 8:
                 pyautogui.press('space')
-            time.sleep(random.random())
+            time.sleep(1)
         except Exception as e:
             logger.error(repr(e))
             time.sleep(1)
 
+destroyKey = 'r' # destroy bad fishes
 fishingKey = 'f' # replace to your fishing key
 logger = logging.getLogger('auto_fishing')
-timeoutMinutes = random.randint(50, 80) # 一段时间后关闭程序
+timeoutMinutes = random.randint(90, 110) # close wow on timeout
 
 def exitWorker():
     logger.info("close wow after {} minutes".format(timeoutMinutes))
     time.sleep(timeoutMinutes * 60)
     logger.info("close wow")
+    # pyautogui.press('r')
+    time.sleep(20)
     pyautogui.hotkey('alt', 'f4')
-    sys.exit(1)
+    os._exit(1)
 
 def main(autoClose):
     logger.setLevel(logging.INFO)
@@ -151,4 +169,4 @@ if __name__ == '__main__':
     autoClose = False
     if len(sys.argv) == 2 and sys.argv[1] == 'autoClose':
         autoClose = True
-    main(autoClose)
+    main(autoClose) 
